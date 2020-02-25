@@ -2,6 +2,7 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 import sys
+from copy import deepcopy
 
 # cap = cv2.VideoCapture('Tag0.mp4')
 # i=0
@@ -31,6 +32,7 @@ cv2.drawContours(img, contours, -1, (0, 255, 0), 3)
 # cv2.imshow('Contours', img)
 # cv2.waitKey(0)
 print(contours)
+img_copy = deepcopy(img)
 
 epsilon = 0.1*cv2.arcLength(contours[1],True)
 approx = cv2.approxPolyDP(contours[1],epsilon,True)
@@ -135,6 +137,8 @@ for i in range(len(inliers_src)):
 s, v, vh = np.linalg.svd(A)
 H = vh[-1,:]
 H = H.reshape((3,3))
+print("xxxxxxxxxxxxxxxxxxxxxx")
+print(H)
 # theta = np.pi/2
 print(theta)
 # identity_matrix = np.identity(3)
@@ -187,3 +191,120 @@ cv2.imwrite('transformed_image.png', new_image)
 # # cv2.imshow('warped.png', warped)
 # # cv2.imshow('warped_full.png', warped)
 # # cv2.waitKey(0)
+
+# Compute H for cube
+inliers_src = [[0, 1], [1, 1], [1, 0], [0,0]]
+print('Source points', inliers_src)
+print('Destination points', inliers_dst)
+
+A= []
+for i in range(len(inliers_src)):
+    A.append([-inliers_src[i][0], -inliers_src[i][1], -1, 0, 0 ,0, inliers_src[i][0]*inliers_dst[i][0], inliers_src[i][1]*inliers_dst[i][0], inliers_dst[i][0]])
+    A.append([ 0, 0 ,0,-inliers_src[i][0], -inliers_src[i][1], -1, inliers_src[i][0]*inliers_dst[i][1], inliers_src[i][1]*inliers_dst[i][1], inliers_dst[i][1]])
+s, v, vh = np.linalg.svd(A)
+H = vh[-1,:]
+H = H.reshape((3,3))
+print("xxxxxxxxxxxxxxxxxxxxxx")
+print(H)
+
+# Camera Parameters
+K = np.matrix.transpose(np.asarray([[1406.08415449821, 0, 0],
+                                    [2.20679787308599, 1417.99930662800, 0],
+                                    [1014.13643417416, 566.347754321696, 1]]))
+print("K: ")
+print(K)
+
+K_inv = np.linalg.inv(K)
+print("K_inv: ")
+print(K_inv)
+
+B_ = np.matmul(K_inv, H)
+print("B_: ")
+print(B_)
+
+if (np.linalg.det(B_) < 0):
+    B_ = (-1) * B_
+
+print(B_)
+
+# Get colums of B_
+x1 = B_[:,0]
+x2 = B_[:,1]
+print(x1)
+print(x2)
+
+# x3 = np.cross(x1, x2)
+y = B_[:,2]
+print(y)
+
+# Calculate scale factor
+scale = ((np.linalg.norm(x1) + np.linalg.norm(x2))/2)**(-1)
+print("scale: ")
+print(scale)
+
+# Get the rotation and translation vectors
+r1 = scale * x1
+r2 = scale * x2
+# r3 = scale * x3
+r3 = np.cross(r1, r2)
+t = scale * y 
+
+# print(r1)
+r1 = np.reshape(r1, (3,1))
+r2 = np.reshape(r2, (3,1))
+r3 = np.reshape(r3, (3,1))
+t = np.reshape(t, (3,1))
+
+
+# print(r1)
+
+# Projection Matrix
+P = np.asarray([r1, r2, r3, t])
+P = np.reshape(P, (3, 4))
+print("P: ")
+print(P)
+
+# Coordinates of corner of cube in world frame (Homogeneous Coordinates)
+cube_w = np.asarray([[0, 1, 1, 0, 0, 1, 1, 1],
+                     [0, 0, 1, 1, 0, 0, 1, 1],
+                     [0, 0, 0, 0, 1, 1, 1, 1],
+                     [1, 1, 1, 1, 1, 1, 1, 1]])
+
+# Coordinates of corner of cube in image plane (Homogeneous Coordinates)
+cube_i = np.matmul(P, cube_w)
+print(cube_i)
+for i in range(len(cube_i[0])):
+    alpha = cube_i[2][i]
+    cube_i[0][i] = int(cube_i[0][i]/alpha)
+    cube_i[1][i] = int(cube_i[1][i]/alpha)
+    cube_i[2][i] = int(cube_i[2][i]/alpha)
+    print(cube_i[:,i])
+print("cibe_i: ")
+print(cube_i)
+
+# c_line contains the pair of verties that have an edge between them
+c_lines = [[0, 1],
+           [0, 4],
+           [0, 3],
+           [1, 5],
+           [1, 2],
+           [2, 6],
+           [2, 3],
+           [3, 7],
+           [4, 5],
+           [4, 7],
+           [5, 6],
+           [6, 7]]
+
+for i in range(len(cube_i)):
+    pt1 = (int(cube_i[0][c_lines[i][0]]), int(cube_i[1][c_lines[i][0]]))
+    pt2 = (int(cube_i[0][c_lines[i][1]]), int(cube_i[1][c_lines[i][1]]))
+    image_copy = cv2.line(img_copy, pt1, pt2, (0, 0, 225), 2)
+
+cv2.imwrite('Cube_imposed.png', img)
+
+
+
+
+
+
