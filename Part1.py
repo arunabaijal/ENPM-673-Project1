@@ -21,7 +21,7 @@ from copy import deepcopy
 def main():
     # img = cv2.imread("kang15.jpg", cv2.IMREAD_GRAYSCALE)
     img_array = []
-    cap = cv2.VideoCapture('Tag0.mp4')
+    cap = cv2.VideoCapture('multipleTags.mp4')
     if (cap.isOpened() == False): 
         print("Unable to read camera feed")
     frame_width = int(cap.get(3))
@@ -139,6 +139,9 @@ def main():
                     identity = 1 * (1 if new_image[3][4] == 255 else 0) + 2 * (1 if new_image[3][3] == 255 else 0) + 4 * (
                         1 if new_image[4][3] == 255 else 0) + 8 * (1 if new_image[4][4] == 255 else 0)
                     theta = 3
+                else:
+                    print("Unable to detect orientation!")
+                    continue
 
                 # print('Identity is ', identity + 1)
                 # print ('Coordinates are ', approx)
@@ -215,20 +218,20 @@ def main():
                 # cv2.waitKey(0)
 
                 # cv2.imwrite('transformed_image.png', new_image)
-            # print('img', img.shape)
-            # print('out', frame_width,frame_height)
-            # out.write(img)
+                # print('img', img.shape)
+                # print('out', frame_width,frame_height)
+                # out.write(img)
 
-            # cv2.imshow('frame',img)
-            # cube_imposed = drawCube(inliers_dst, img, img_copy)
-            # img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-            # img = cv2.cvtColor(cube_imposed, cv2.COLOR_GRAY2BGR)
-            img_array.append(frame)
-            # cv2.imwrite('multipleTags' + str(i) + '.jpg', img)
-            # if cv2.waitKey(1) & 0xFF == ord('q'):
-            #     break
-        # else:
-        #     break
+                cv2.imshow('frame',frame)
+                # cube_imposed = drawCube(inliers_dst, img, img_copy)
+                # img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+                # img = cv2.cvtColor(cube_imposed, cv2.COLOR_GRAY2BGR)
+                # cv2.imwrite('multipleTags' + str(i) + '.jpg', img)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+                img_array.append(frame)
+        else:
+            break
     for i in range(len(img_array)):
         out.write(img_array[i])
     out.release()
