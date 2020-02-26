@@ -54,7 +54,7 @@ def main():
             index = findRelevantContours(hierarchy[0])
             # print(index)
             relContours = []
-            threshold_area = 150
+            threshold_area = 250
             for i in index:
                 area = cv2.contourArea(contours[i])
                 # print(area)
@@ -222,14 +222,14 @@ def main():
                 # print('out', frame_width,frame_height)
                 # out.write(img)
 
-                cv2.imshow('frame',frame)
-                # cube_imposed = drawCube(inliers_dst, img, img_copy)
-                # img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-                # img = cv2.cvtColor(cube_imposed, cv2.COLOR_GRAY2BGR)
-                # cv2.imwrite('multipleTags' + str(i) + '.jpg', img)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
-                img_array.append(frame)
+            cv2.imshow('frame',frame)
+            # cube_imposed = drawCube(inliers_dst, img, img_copy)
+            # img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+            # img = cv2.cvtColor(cube_imposed, cv2.COLOR_GRAY2BGR)
+            # cv2.imwrite('multipleTags' + str(i) + '.jpg', img)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+            img_array.append(frame)
         else:
             break
     for i in range(len(img_array)):
