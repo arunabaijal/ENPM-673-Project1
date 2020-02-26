@@ -42,6 +42,7 @@ def main():
             dim = (width, height)
             # resize image
             img = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
+            img_copy = deepcopy(img)
             ret, thresh = cv2.threshold(img, 230, 255, 0)
             _, contours, hierarchy=cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
             # cv2.drawContours(img, contours, -1, (0, 255, 0), 3)
@@ -218,7 +219,9 @@ def main():
             # out.write(img)
 
             # cv2.imshow('frame',img)
+            # cube_imposed = drawCube(inliers_dst, img, img_copy)
             img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+            # img = cv2.cvtColor(cube_imposed, cv2.COLOR_GRAY2BGR)
             img_array.append(img)
             # cv2.imwrite('multipleTags' + str(i) + '.jpg', img)
             # if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -256,25 +259,32 @@ def findRelevantContours(hierarchy):
 # # cv2.imshow('warped_full.png', warped)
 # # cv2.waitKey(0)
 
-
-if __name__ == '__main__':
-    main()
-
 def drawCube(inliers_dst, img, img_copy):
-    # Compute H for cube
-    inliers_src = [[0, 1], [1, 1], [1, 0], [0,0]]
+    inliers_src = [[0, 1], [1, 1], [1, 0], [0, 0]]
+    xt = [[0, 0, 1, 1], 
+          [0, 1, 0, 1],
+          [1, 1, 1, 1]]
     print('Source points', inliers_src)
     print('Destination points', inliers_dst)
 
     A= []
     for i in range(len(inliers_src)):
         A.append([-inliers_src[i][0], -inliers_src[i][1], -1, 0, 0 ,0, inliers_src[i][0]*inliers_dst[i][0], inliers_src[i][1]*inliers_dst[i][0], inliers_dst[i][0]])
-        A.append([ 0, 0 ,0,-inliers_src[i][0], -inliers_src[i][1], -1, inliers_src[i][0]*inliers_dst[i][1], inliers_src[i][1]*inliers_dst[i][1], inliers_dst[i][1]])
+        A.append([ 0, 0 ,0,-inliers_src[i][0], -inliers_src[i][1], -1, inliers_src[i][0]*inliers_dst[i][1], inliers_src[i][1]*inliers_dst[i][1], inliers_dst[i][1]])  
     s, v, vh = np.linalg.svd(A)
     H = vh[-1,:]
     H = H.reshape((3,3))
     print("xxxxxxxxxxxxxxxxxxxxxx")
     print(H)
+
+    # ####################### Debugging(delete later) ########################
+    det = np.matmul(H, xt)
+    print("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+    for i in range(4):
+        det[0][i] = det[0][i]/det[2][i]
+        det[1][i] = det[1][i]/det[2][i]
+    print(det)
+    # ########################################################################
 
     # Camera Parameters
     K = np.matrix.transpose(np.asarray([[1406.08415449821, 0, 0],
@@ -287,54 +297,72 @@ def drawCube(inliers_dst, img, img_copy):
     print("K_inv: ")
     print(K_inv)
 
-    B_ = np.matmul(K_inv, H)
-    print("B_: ")
-    print(B_)
+    B1 = np.matmul(K_inv, H)
+    print("B1: ")
+    print(B1)
 
-    if (np.linalg.det(B_) < 0):
-        B_ = (-1) * B_
-
-    print(B_)
-
-    # Get colums of B_
-    x1 = B_[:,0]
-    x2 = B_[:,1]
+    # Get colums of B1
+    x1 = np.asarray(B1[:,0]).T
+    x2 = np.asarray(B1[:,1]).T
+    x3 = np.asarray(B1[:,2]).T
     print(x1)
     print(x2)
+    print(x3)
 
-    # x3 = np.cross(x1, x2)
-    y = B_[:,2]
-    print(y)
-
-    # Calculate scale factor
+    # calculate scale factor
     scale = ((np.linalg.norm(x1) + np.linalg.norm(x2))/2)**(-1)
     print("scale: ")
     print(scale)
 
+    # Calculate B2 and B
+    print(np.linalg.det(B1))
+    if np.linalg.det(B1) > 0:
+        B1 = (-1) * B1
+    B = scale * B1
+    
+
+    # B = scale * B2
+    print("B: ")
+    print(B)
+
+    b1 = B[:, 0]
+    b2 = B[:, 1]
+    b3 = B[:, 2]
+
     # Get the rotation and translation vectors
-    r1 = scale * x1
-    r2 = scale * x2
+    r1 = scale * b1
+    r2 = scale * b2
+    print(r1)
+    print(r2)
     # r3 = scale * x3
-    r3 = np.cross(r1, r2)
-    t = scale * y
+    r3 = np.cross(r1, r2)/scale
+    print(r3)
+    t = scale * b3
+    print(t)
 
-    # print(r1)
-    r1 = np.reshape(r1, (3,1))
-    r2 = np.reshape(r2, (3,1))
-    r3 = np.reshape(r3, (3,1))
-    t = np.reshape(t, (3,1))
+    r1 = np.asarray(r1).T
+    r2 = np.asarray(r2).T
+    r3 = np.asarray(r3).T
+    t = np.asarray(t).T
 
-
-    # print(r1)
+    print(r1.shape)
+    print(r2.shape)
+    print(r3.shape)
+    print(t.shape)
 
     # Projection Matrix
-    P = np.asarray([r1, r2, r3, t])
-    P = np.reshape(P, (3, 4))
+    P_ = np.column_stack((r1, r2, r3, t))
+    # R = np.array([r1, r2, r3]).T
+    # P_ = np.hstack([R, t])
+    print(P_)
+    P = np.reshape(P_, (3, 4))
+    print(P)
+    P = np.matmul(K, P)
     print("P: ")
     print(P)
 
     # Coordinates of corner of cube in world frame (Homogeneous Coordinates)
-    cube_w = np.asarray([[0, 1, 1, 0, 0, 1, 1, 1],
+    cube_w = np.asarray([[0, 1, 1, 0, 0, 1, 1, 0],
                          [0, 0, 1, 1, 0, 0, 1, 1],
                          [0, 0, 0, 0, 1, 1, 1, 1],
                          [1, 1, 1, 1, 1, 1, 1, 1]])
@@ -349,6 +377,9 @@ def drawCube(inliers_dst, img, img_copy):
         cube_i[2][i] = int(cube_i[2][i]/alpha)
         print(cube_i[:,i])
     print("cibe_i: ")
+    for i in range(len(cube_i)):
+        for j in range(len(cube_i[0])):
+            cube_i[i][j] = int(cube_i[i][j])
     print(cube_i)
 
     # c_line contains the pair of verties that have an edge between them
@@ -365,9 +396,16 @@ def drawCube(inliers_dst, img, img_copy):
                [5, 6],
                [6, 7]]
 
-    for i in range(len(cube_i)):
-        pt1 = (int(cube_i[0][c_lines[i][0]]), int(cube_i[1][c_lines[i][0]]))
-        pt2 = (int(cube_i[0][c_lines[i][1]]), int(cube_i[1][c_lines[i][1]]))
-        image_copy = cv2.line(img_copy, pt1, pt2, (0, 0, 225), 2)
+    for i in range(len(c_lines)):
+        pt1 = (int(cube_i[1][c_lines[i][0]]), int(cube_i[0][c_lines[i][0]]))
+        pt2 = (int(cube_i[1][c_lines[i][1]]), int(cube_i[0][c_lines[i][1]]))
+        print(c_lines[i][0], c_lines[i][1])
+        print(pt1, pt2)
+        img_copy = cv2.line(img_copy, pt1, pt2, (0, 0, 225), 2)
 
-    cv2.imwrite('Cube_imposed.png', img)
+    # cv2.imwrite('Cube_imposed.png', img_copy)
+
+    return img_copy
+
+if __name__ == '__main__':
+    main()
