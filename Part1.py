@@ -20,12 +20,16 @@ from copy import deepcopy
 
 def main():
     # img = cv2.imread("kang15.jpg", cv2.IMREAD_GRAYSCALE)
-    cap = cv2.VideoCapture('multipleTags.mp4')
+    img_array = []
+    cap = cv2.VideoCapture('Tag0.mp4')
     if (cap.isOpened() == False): 
         print("Unable to read camera feed")
     frame_width = int(cap.get(3))
     frame_height = int(cap.get(4))
-    out = cv2.VideoWriter('output_multiple.avi',cv2.VideoWriter_fourcc('M','J','P','G'), 10, (frame_width,frame_height))
+    scale_percent = 60  # percent of original size
+    frame_width = int(frame_width * scale_percent / 100)
+    frame_height = int(frame_height * scale_percent / 100)
+    out = cv2.VideoWriter('project.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (frame_width,frame_height))
     
     while(True):
         ret, frame = cap.read()
@@ -136,7 +140,7 @@ def main():
 
                 # print('Identity is ', identity + 1)
                 # print ('Coordinates are ', approx)
-                lena = cv2.imread("Lena.png", 1)
+                # lena = cv2.imread("Lena.png", 1)
                 gray = cv2.imread("Lena.png", cv2.IMREAD_GRAYSCALE)
                 # scale_percent = 50 # percent of original size
                 # width = int(8)
@@ -209,18 +213,24 @@ def main():
                 # cv2.waitKey(0)
 
                 # cv2.imwrite('transformed_image.png', new_image)
+            # print('img', img.shape)
+            # print('out', frame_width,frame_height)
+            # out.write(img)
 
-            out.write(img)
-
-            cv2.imshow('frame',img)
+            # cv2.imshow('frame',img)
+            img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+            img_array.append(img)
             # cv2.imwrite('multipleTags' + str(i) + '.jpg', img)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+            # if cv2.waitKey(1) & 0xFF == ord('q'):
+            #     break
         else:
             break
-    cap.release()
+    for i in range(len(img_array)):
+        out.write(img_array[i])
     out.release()
-    cv2.destroyAllWindows()
+    cap.release()
+    # out.release()
+    # cv2.destroyAllWindows()
 
 
 
