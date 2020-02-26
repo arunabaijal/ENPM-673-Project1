@@ -42,6 +42,7 @@ def main():
             dim = (width, height)
             # resize image
             img = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
+            frame = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA)
             img_copy = deepcopy(img)
             ret, thresh = cv2.threshold(img, 230, 255, 0)
             _, contours, hierarchy=cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -141,7 +142,7 @@ def main():
 
                 # print('Identity is ', identity + 1)
                 # print ('Coordinates are ', approx)
-                # lena = cv2.imread("Lena.png", 1)
+                lena = cv2.imread("Lena.png", 1)
                 gray = cv2.imread("Lena.png", cv2.IMREAD_GRAYSCALE)
                 # scale_percent = 50 # percent of original size
                 # width = int(8)
@@ -207,7 +208,7 @@ def main():
                             lena_warped_cords[i][1] < img.shape[1]):
                         # print('thresh index', int(round(lena_warped_cords[i][0])), int(round(lena_warped_cords[i][1])))
                         # print('original cords', lena_cords[i][0], lena_cords[i][1])
-                        img[lena_warped_cords[i][0]][lena_warped_cords[i][1]] = gray[lena_cords[i][0]][lena_cords[i][1]]
+                        frame[lena_warped_cords[i][0]][lena_warped_cords[i][1]] = lena[lena_cords[i][0]][lena_cords[i][1]]
                 # print(theta)
 
                 # cv2.imwrite('Lena_imposed.png', img)
@@ -220,14 +221,14 @@ def main():
 
             # cv2.imshow('frame',img)
             # cube_imposed = drawCube(inliers_dst, img, img_copy)
-            img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
+            # img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
             # img = cv2.cvtColor(cube_imposed, cv2.COLOR_GRAY2BGR)
-            img_array.append(img)
+            img_array.append(frame)
             # cv2.imwrite('multipleTags' + str(i) + '.jpg', img)
             # if cv2.waitKey(1) & 0xFF == ord('q'):
             #     break
-        else:
-            break
+        # else:
+        #     break
     for i in range(len(img_array)):
         out.write(img_array[i])
     out.release()
