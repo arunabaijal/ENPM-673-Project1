@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import sys
 from copy import deepcopy
 
+
 # cap = cv2.VideoCapture('Tag0.mp4')
 # i=0
 # while(cap.isOpened()):
@@ -21,45 +22,50 @@ from copy import deepcopy
 def main():
     # img = cv2.imread("kang15.jpg", cv2.IMREAD_GRAYSCALE)
     img_array = []
-    cap = cv2.VideoCapture('Tag0.mp4')
-    if (cap.isOpened() == False): 
+    cap = cv2.VideoCapture('Tag1.mp4')
+    if (cap.isOpened() == False):
         print("Unable to read camera feed")
     frame_width = int(cap.get(3))
     frame_height = int(cap.get(4))
     scale_percent = 60  # percent of original size
     frame_width = int(frame_width * scale_percent / 100)
     frame_height = int(frame_height * scale_percent / 100)
-    out = cv2.VideoWriter('tag0Result.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (frame_width,frame_height))
-    
-    while(True):
+    out = cv2.VideoWriter('tag1Result.avi', cv2.VideoWriter_fourcc(*'DIVX'), 15, (frame_width, frame_height))
+    old_first_corner = np.zeros((1, 2))
+    count = 0
+    while (True):
         ret, frame = cap.read()
         if ret == True:
             img = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        
-            scale_percent = 60 # percent of original size
+
+            scale_percent = 60  # percent of original size
             width = int(img.shape[1] * scale_percent / 100)
             height = int(img.shape[0] * scale_percent / 100)
             dim = (width, height)
             # resize image
-            img = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
-            frame = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA)
-            img_copy = deepcopy(img)
+            img = cv2.resize(img, dim, interpolation=cv2.INTER_AREA)
+            frame = cv2.resize(frame, dim, interpolation=cv2.INTER_AREA)
             ret, thresh = cv2.threshold(img, 230, 255, 0)
-            _, contours, hierarchy=cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-            # cv2.drawContours(img, contours, -1, (0, 255, 0), 3)
-            # cv2.imshow('Contours', img)
-            # cv2.waitKey(0)
+            _, contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
             # print(contours)
             # print(hierarchy)
             index = findRelevantContours(hierarchy[0])
             # print(index)
             relContours = []
-            threshold_area = 250
+            threshold_area = 0.7
+            max_area = 0
             for i in index:
                 area = cv2.contourArea(contours[i])
-                # print(area)
-                if area > threshold_area:
+                if area > max_area:
+                    max_area = area
+            for i in index:
+                area = cv2.contourArea(contours[i])
+                if area > threshold_area * max_area:
                     relContours.append(contours[i])
+            # cv2.drawContours(img, relContours, -1, (0, 255, 0), 3)
+            # cv2.imshow('Contours', img)
+            # if cv2.waitKey(1) & 0xFF == ord('q'):
+            #     break
             # cv2.drawContours(img, relContours, -1, (0, 255, 0), 3)
             # cv2.imshow('Relevant Contours', img)
             # cv2.waitKey(0)
@@ -67,7 +73,8 @@ def main():
                 epsilon = 0.1 * cv2.arcLength(contours, True)
                 approx = cv2.approxPolyDP(contours, epsilon, True)
 
-                # print(approx)
+                if len(approx) < 4:
+                    continue
                 minx = sys.maxint
                 miny = sys.maxint
                 maxx = 0
@@ -81,7 +88,41 @@ def main():
                         maxx = c[0][0]
                     if maxy < c[0][1]:
                         maxy = c[0][1]
-                cropped_image = img[miny:maxy, minx:maxx]
+                print('old approx', approx)
+                min_dist = sys.maxint
+                index = 0
+                for i, a in enumerate(approx):
+                    if count == 0:
+                        break
+                    else:
+                        dist = abs(old_first_corner[0][0] - a[0][0]) + abs(old_first_corner[0][1] - a[0][1])
+                        if min_dist > dist:
+                            min_dist = dist
+                            index = i
+                if index == 1:
+                    temp = approx[0]
+                    approx[0] = approx[1]
+                    approx[1] = approx[2]
+                    approx[2] = approx[3]
+                    approx[3] = temp
+                elif index == 2:
+                    temp = approx[0]
+                    temp2 = approx[1]
+                    approx[0] = approx[2]
+                    approx[1] = approx[3]
+                    approx[2] = temp
+                    approx[3] = temp2
+                elif index == 3:
+                    temp = approx[0]
+                    temp2 = approx[1]
+                    temp3 = approx[2]
+                    approx[0] = approx[3]
+                    approx[1] = temp
+                    approx[2] = temp2
+                    approx[3] = temp3
+                old_first_corner[0] = [approx[index][0][0], approx[index][0][1]]
+                print('new approx', approx)
+                # cropped_image = img[miny:maxy, minx:maxx]
                 # cv2.imshow('cropped', cropped_image)
                 # cv2.waitKey(0)
                 inliers_src = []
@@ -92,10 +133,12 @@ def main():
 
                 A = []
                 for i in range(len(inliers_src)):
-                    A.append([-inliers_src[i][0], -inliers_src[i][1], -1, 0, 0, 0, inliers_src[i][0] * inliers_dst[i][0],
-                              inliers_src[i][1] * inliers_dst[i][0], inliers_dst[i][0]])
-                    A.append([0, 0, 0, -inliers_src[i][0], -inliers_src[i][1], -1, inliers_src[i][0] * inliers_dst[i][1],
-                              inliers_src[i][1] * inliers_dst[i][1], inliers_dst[i][1]])
+                    A.append(
+                        [-inliers_src[i][0], -inliers_src[i][1], -1, 0, 0, 0, inliers_src[i][0] * inliers_dst[i][0],
+                         inliers_src[i][1] * inliers_dst[i][0], inliers_dst[i][0]])
+                    A.append(
+                        [0, 0, 0, -inliers_src[i][0], -inliers_src[i][1], -1, inliers_src[i][0] * inliers_dst[i][1],
+                         inliers_src[i][1] * inliers_dst[i][1], inliers_dst[i][1]])
                 s, v, vh = np.linalg.svd(A)
                 H = vh[-1, :]
                 H = H.reshape((3, 3))
@@ -121,28 +164,34 @@ def main():
                         # print('original cords', cords[i][0], cords[i][1])
                         new_image[int(round(nc[i][0]))][int(round(nc[i][1]))] = thresh[cords[i][0]][cords[i][1]]
                 # print(new_image)
+                cv2.imwrite('new_image' + str(count) + '.png', new_image)
                 identity = 0
                 theta = 0
                 if (new_image[2][2] == 255):
-                    identity = 1 * (1 if new_image[4][4] == 255 else 0) + 2 * (1 if new_image[4][3] == 255 else 0) + 4 * (
-                        1 if new_image[3][3] == 255 else 0) + 8 * (1 if new_image[3][4] == 255 else 0)
+                    identity = 1 * (1 if new_image[4][4] == 255 else 0) + 2 * (
+                        1 if new_image[4][3] == 255 else 0) + 4 * (
+                                   1 if new_image[3][3] == 255 else 0) + 8 * (1 if new_image[3][4] == 255 else 0)
                     theta = 2
                 elif (new_image[2][5] == 255):
-                    identity = 1 * (1 if new_image[4][3] == 255 else 0) + 2 * (1 if new_image[4][4] == 255 else 0) + 4 * (
-                        1 if new_image[3][4] == 255 else 0) + 8 * (1 if new_image[3][3] == 255 else 0)
+                    identity = 1 * (1 if new_image[4][3] == 255 else 0) + 2 * (
+                        1 if new_image[4][4] == 255 else 0) + 4 * (
+                                   1 if new_image[3][4] == 255 else 0) + 8 * (1 if new_image[3][3] == 255 else 0)
                     theta = 1
                 elif (new_image[5][5] == 255):
-                    identity = 1 * (1 if new_image[3][3] == 255 else 0) + 2 * (1 if new_image[3][4] == 255 else 0) + 4 * (
-                        1 if new_image[4][4] == 255 else 0) + 8 * (1 if new_image[4][3] == 255 else 0)
+                    identity = 1 * (1 if new_image[3][3] == 255 else 0) + 2 * (
+                        1 if new_image[3][4] == 255 else 0) + 4 * (
+                                   1 if new_image[4][4] == 255 else 0) + 8 * (1 if new_image[4][3] == 255 else 0)
                     theta = 0
                 elif (new_image[5][2] == 255):
-                    identity = 1 * (1 if new_image[3][4] == 255 else 0) + 2 * (1 if new_image[3][3] == 255 else 0) + 4 * (
-                        1 if new_image[4][3] == 255 else 0) + 8 * (1 if new_image[4][4] == 255 else 0)
+                    identity = 1 * (1 if new_image[3][4] == 255 else 0) + 2 * (
+                        1 if new_image[3][3] == 255 else 0) + 4 * (
+                                   1 if new_image[4][3] == 255 else 0) + 8 * (1 if new_image[4][4] == 255 else 0)
                     theta = 3
                 else:
                     print("Unable to detect orientation!")
                     continue
-                cv2.putText(frame, 'Identity: '+str(identity), (approx[0][0][0], approx[0][0][1]), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 255, 0), 1)
+                cv2.putText(frame, 'Identity: ' + str(identity), (approx[0][0][0], approx[0][0][1]),
+                            cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 255, 0), 1)
 
                 # print('Identity is ', identity + 1)
                 # print ('Coordinates are ', approx)
@@ -172,10 +221,12 @@ def main():
 
                 A = []
                 for i in range(len(inliers_src)):
-                    A.append([-inliers_src[i][0], -inliers_src[i][1], -1, 0, 0, 0, inliers_src[i][0] * inliers_dst[i][0],
-                              inliers_src[i][1] * inliers_dst[i][0], inliers_dst[i][0]])
-                    A.append([0, 0, 0, -inliers_src[i][0], -inliers_src[i][1], -1, inliers_src[i][0] * inliers_dst[i][1],
-                              inliers_src[i][1] * inliers_dst[i][1], inliers_dst[i][1]])
+                    A.append(
+                        [-inliers_src[i][0], -inliers_src[i][1], -1, 0, 0, 0, inliers_src[i][0] * inliers_dst[i][0],
+                         inliers_src[i][1] * inliers_dst[i][0], inliers_dst[i][0]])
+                    A.append(
+                        [0, 0, 0, -inliers_src[i][0], -inliers_src[i][1], -1, inliers_src[i][0] * inliers_dst[i][1],
+                         inliers_src[i][1] * inliers_dst[i][1], inliers_dst[i][1]])
                 s, v, vh = np.linalg.svd(A)
                 H = vh[-1, :]
                 H = H.reshape((3, 3))
@@ -204,15 +255,18 @@ def main():
                 lena_warped_cords = []
                 for i in range(lena_warped.shape[1]):
                     lena_warped_cords.append(
-                        [int(round(lena_warped[0][i] / lena_warped[2][i])), int(round(lena_warped[1][i] / lena_warped[2][i]))])
+                        [int(round(lena_warped[0][i] / lena_warped[2][i])),
+                         int(round(lena_warped[1][i] / lena_warped[2][i]))])
                 # print(lena_warped_cords)
                 # print(img.shape)
                 for i in range(len(lena_warped_cords)):
-                    if (lena_warped_cords[i][0] >= 0 and lena_warped_cords[i][1] >= 0 and lena_warped_cords[i][0] < img.shape[0] and
+                    if (lena_warped_cords[i][0] >= 0 and lena_warped_cords[i][1] >= 0 and lena_warped_cords[i][0] <
+                            img.shape[0] and
                             lena_warped_cords[i][1] < img.shape[1]):
                         # print('thresh index', int(round(lena_warped_cords[i][0])), int(round(lena_warped_cords[i][1])))
                         # print('original cords', lena_cords[i][0], lena_cords[i][1])
-                        frame[lena_warped_cords[i][0]][lena_warped_cords[i][1]] = lena[lena_cords[i][0]][lena_cords[i][1]]
+                        frame[lena_warped_cords[i][0]][lena_warped_cords[i][1]] = lena[lena_cords[i][0]][
+                            lena_cords[i][1]]
                 # print(theta)
 
                 # cv2.imwrite('Lena_imposed.png', img)
@@ -222,8 +276,8 @@ def main():
                 # print('img', img.shape)
                 # print('out', frame_width,frame_height)
                 # out.write(img)
-
-            cv2.imshow('frame',frame)
+            count = + 1
+            cv2.imshow('frame', frame)
             # cube_imposed = drawCube(inliers_dst, img, img_copy)
             # img = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
             # img = cv2.cvtColor(cube_imposed, cv2.COLOR_GRAY2BGR)
@@ -239,7 +293,6 @@ def main():
     cap.release()
     # out.release()
     # cv2.destroyAllWindows()
-
 
 
 def findRelevantContours(hierarchy):
@@ -275,7 +328,7 @@ def drawCube(inliers_dst, img, img_copy):
     A= []
     for i in range(len(inliers_src)):
         A.append([-inliers_src[i][0], -inliers_src[i][1], -1, 0, 0 ,0, inliers_src[i][0]*inliers_dst[i][0], inliers_src[i][1]*inliers_dst[i][0], inliers_dst[i][0]])
-        A.append([ 0, 0 ,0,-inliers_src[i][0], -inliers_src[i][1], -1, inliers_src[i][0]*inliers_dst[i][1], inliers_src[i][1]*inliers_dst[i][1], inliers_dst[i][1]])  
+        A.append([ 0, 0 ,0,-inliers_src[i][0], -inliers_src[i][1], -1, inliers_src[i][0]*inliers_dst[i][1], inliers_src[i][1]*inliers_dst[i][1], inliers_dst[i][1]])
     s, v, vh = np.linalg.svd(A)
     H = vh[-1,:]
     H = H.reshape((3,3))
@@ -324,7 +377,6 @@ def drawCube(inliers_dst, img, img_copy):
     if np.linalg.det(B1) > 0:
         B1 = (-1) * B1
     B = scale * B1
-    
 
     # B = scale * B2
     print("B: ")
