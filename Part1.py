@@ -30,7 +30,8 @@ def main():
     frame_width = int(frame_width * scale_percent / 100)
     frame_height = int(frame_height * scale_percent / 100)
     out = cv2.VideoWriter('tag0Result.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (frame_width,frame_height))
-    
+    old_first_corner = np.zeros((1,2))
+    count = 0
     while(True):
         ret, frame = cap.read()
         if ret == True:
@@ -43,7 +44,6 @@ def main():
             # resize image
             img = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
             frame = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA)
-            img_copy = deepcopy(img)
             ret, thresh = cv2.threshold(img, 230, 255, 0)
             _, contours, hierarchy=cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
             # cv2.drawContours(img, contours, -1, (0, 255, 0), 3)
@@ -54,7 +54,7 @@ def main():
             index = findRelevantContours(hierarchy[0])
             # print(index)
             relContours = []
-            threshold_area = 250
+            threshold_area = 150
             for i in index:
                 area = cv2.contourArea(contours[i])
                 # print(area)
@@ -67,7 +67,8 @@ def main():
                 epsilon = 0.1 * cv2.arcLength(contours, True)
                 approx = cv2.approxPolyDP(contours, epsilon, True)
 
-                # print(approx)
+                if len(approx) != 4:
+                    continue
                 minx = sys.maxint
                 miny = sys.maxint
                 maxx = 0
@@ -81,7 +82,41 @@ def main():
                         maxx = c[0][0]
                     if maxy < c[0][1]:
                         maxy = c[0][1]
-                cropped_image = img[miny:maxy, minx:maxx]
+                print('old approx',approx)
+                min_dist = sys.maxint
+                index = 0
+                for i, a in enumerate(approx):
+                    if count == 0:
+                        break
+                    else:
+                        dist = abs(old_first_corner[0][0] - a[0][0]) + abs(old_first_corner[0][1] - a[0][1])
+                        if min_dist > dist:
+                            min_dist = dist
+                            index = i
+                old_first_corner[0] = [approx[index][0][0], approx[index][0][1]]
+                if index == 1:
+                    temp = approx[0]
+                    approx[0] = approx[1]
+                    approx[1] = approx[2]
+                    approx[2] = approx[3]
+                    approx[3] = temp
+                elif index == 2:
+                    temp = approx[0]
+                    temp2 = approx[1]
+                    approx[0] = approx[2]
+                    approx[1] = approx[3]
+                    approx[2] = temp
+                    approx[3] = temp2
+                elif index == 3:
+                    temp = approx[0]
+                    temp2 = approx[1]
+                    temp3 = approx[2]
+                    approx[0] = approx[3]
+                    approx[1] = temp
+                    approx[2] = temp2
+                    approx[3] = temp3
+                print('new approx', approx)
+                # cropped_image = img[miny:maxy, minx:maxx]
                 # cv2.imshow('cropped', cropped_image)
                 # cv2.waitKey(0)
                 inliers_src = []
@@ -233,6 +268,7 @@ def main():
             img_array.append(frame)
         else:
             break
+        count =+ 1
     for i in range(len(img_array)):
         out.write(img_array[i])
     out.release()
