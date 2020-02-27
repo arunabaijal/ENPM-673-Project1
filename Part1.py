@@ -88,7 +88,6 @@ def main():
                         maxx = c[0][0]
                     if maxy < c[0][1]:
                         maxy = c[0][1]
-                print('old approx', approx)
                 min_dist = sys.maxint
                 index = 0
                 for i, a in enumerate(approx):
@@ -287,6 +286,7 @@ def main():
             img_array.append(frame)
         else:
             break
+        count =+ 1
     for i in range(len(img_array)):
         out.write(img_array[i])
     out.release()
