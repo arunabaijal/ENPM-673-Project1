@@ -21,7 +21,7 @@ from copy import deepcopy
 def main():
     # img = cv2.imread("kang15.jpg", cv2.IMREAD_GRAYSCALE)
     img_array = []
-    cap = cv2.VideoCapture('multipleTags.mp4')
+    cap = cv2.VideoCapture('Tag0.mp4')
     if (cap.isOpened() == False): 
         print("Unable to read camera feed")
     frame_width = int(cap.get(3))
@@ -29,7 +29,7 @@ def main():
     scale_percent = 60  # percent of original size
     frame_width = int(frame_width * scale_percent / 100)
     frame_height = int(frame_height * scale_percent / 100)
-    out = cv2.VideoWriter('project.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (frame_width,frame_height))
+    out = cv2.VideoWriter('tag0Result.avi',cv2.VideoWriter_fourcc(*'DIVX'), 15, (frame_width,frame_height))
     
     while(True):
         ret, frame = cap.read()
@@ -142,6 +142,7 @@ def main():
                 else:
                     print("Unable to detect orientation!")
                     continue
+                cv2.putText(frame, 'Identity: '+str(identity), (approx[0][0][0], approx[0][0][1]), cv2.FONT_HERSHEY_COMPLEX, 0.5, (0, 255, 0), 1)
 
                 # print('Identity is ', identity + 1)
                 # print ('Coordinates are ', approx)
